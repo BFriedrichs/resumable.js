@@ -1,53 +1,149 @@
 <a href="#" id="browseButton">Select files</a>
-
+<div id="imageView"></div>
+<script
+  src="https://code.jquery.com/jquery-3.3.1.js"
+  integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
+  crossorigin="anonymous"></script>
 <script src="resumable.js"></script>
 <script>
+
+
+var showFiles = (data) => {
+  fileId = data.data.id;
+
+  var getUrls = $.ajax({
+      url: 'http://127.0.0.1:' + port + '/files/' + fileId,
+      type: 'GET',
+      dataType: 'json',
+      contentType: "application/json; charset=utf-8",
+      cache: false,
+      contentType: false,
+      processData: false,
+    });
+
+  getUrls.done(function(data) {
+    var imgView = document.getElementById('imageView')
+    for (var subtype in data.data.subTypes) {
+      var images = data.data.subTypes[subtype];
+
+      for (var quality in images) {
+        var src = images[quality].src
+
+        var imgTag = document.createElement('img')
+        imgTag.src = src
+
+        imgView.appendChild(imgTag)
+      }
+    }
+  });
+}
+
+var port = 8080
+
 var r = new Resumable({
-  target: 'test.html'
+  'testChunks': false, 'chunkRetryInterval': 500, 'forceChunkSize': true
 });
 
-
 r.assignBrowse(document.getElementById('browseButton'));
-
 r.on('fileSuccess', function(file){
-    console.debug('fileSuccess',file);
-  });
+  console.debug('fileSuccess',file);
+  r.removeFile(file);
+});
 r.on('fileProgress', function(file){
-    console.debug('fileProgress', file);
-  });
+  console.debug('fileProgress', file);
+});
 r.on('fileAdded', function(file, event){
-    r.upload();
-    console.debug('fileAdded', event);
-  });
+  // r.upload();
+  console.debug('fileAdded', event);
+});
 r.on('filesAdded', function(array){
-    r.upload();
-    console.debug('filesAdded', array);
+  console.debug('filesAdded', array);
+  // r.upload();
+
+  name = 'Test' + Math.random()
+
+  var createBucket = $.ajax({
+    url: 'http://127.0.0.1:' + port + '/buckets',
+    type: 'POST',
+    data: JSON.stringify({'name': name}),
+    dataType: 'json',
+    contentType: "application/json; charset=utf-8",
+    cache: false,
+    contentType: false,
+    processData: false,
   });
+
+  createBucket.done(function(data) {
+    bucketId = data['data']['id']
+    files = []
+    for (i in array) {
+      file = array[i];
+
+      var newFile = {
+        'name': file.fileName,
+        'parent': bucketId,
+      }
+
+      if (file.file.type.split('/')[0] == 'image') {
+        newFile['convert_to'] = 'image';
+      }
+
+      if (file.file.type.split('/')[0] == 'video') {
+        newFile['convert_to'] = 'video';
+      }
+
+      files.push(newFile);
+    }
+
+    file_data = {'files': files};
+    var createFiles = $.ajax({
+      url: 'http://127.0.0.1:' + port + '/files',
+      type: 'POST',
+      data: JSON.stringify(file_data),
+      dataType: 'json',
+      contentType: "application/json; charset=utf-8",
+      cache: false,
+      contentType: false,
+      processData: false,
+    });
+
+    createFiles.done(function(data) {
+      uploadSession = data['data']['upload_session']
+
+      r.opts['target'] = 'http://127.0.0.1:' + port + '/files/' + uploadSession;
+      r.upload();
+
+      // setTimeout(showFiles.bind(this, data), 1000);
+    });
+
+    createFiles.fail(function(e, t) { console.log(e, t); });
+  });
+
+  createBucket.fail(function(e, t) { console.log(e, t); });
+});
 r.on('fileRetry', function(file){
-    console.debug('fileRetry', file);
-  });
+  console.debug('fileRetry', file);
+});
 r.on('fileError', function(file, message){
-    console.debug('fileError', file, message);
-  });
+  console.debug('fileError', file, message);
+});
 r.on('uploadStart', function(){
-    console.debug('uploadStart');
-  });
-r.on('complete', function(){
-    console.debug('complete');
-  });
+  console.debug('uploadStart');
+});
+r.on('complete', function(a, b){
+  console.debug('complete');
+});
 r.on('progress', function(){
-    console.debug('progress');
-  });
+  console.debug('progress');
+});
 r.on('error', function(message, file){
-    console.debug('error', message, file);
-  });
+  console.debug('error', message, file);
+});
 r.on('pause', function(){
-    console.debug('pause');
-  });
+  console.debug('pause');
+});
 r.on('cancel', function(){
-    console.debug('cancel');
-  });
+  console.debug('cancel');
+});
+
 </script>
-
-
-
