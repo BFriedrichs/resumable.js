@@ -1,4 +1,10 @@
 <a href="#" id="browseButton">Select files</a>
+<select id="select">
+  <option value="file">File</option>
+  <option value="image">Image</option>
+  <option value="sphere">Photosphere</option>
+  <option value="video">Video</option>
+</select>
 <div id="imageView"></div>
 <script
   src="https://code.jquery.com/jquery-3.3.1.js"
@@ -7,6 +13,7 @@
 <script src="resumable.js"></script>
 <script>
 
+var select = document.getElementById('select')
 
 var showFiles = (data) => {
   fileId = data.data.id;
@@ -27,14 +34,19 @@ var showFiles = (data) => {
       var images = data.data.subTypes[subtype];
 
       for (var quality in images) {
-        var src = images[quality].src
+        if (quality == 'status') continue
+        var src = images[quality]
 
         var imgTag = document.createElement('img')
-        imgTag.src = src
+        imgTag.src = '/images/' + src.hash.substr(0, 2) + '/' + src.hash
 
         imgView.appendChild(imgTag)
       }
     }
+    var imgTag = document.createElement('img')
+    imgTag.src = '/images/' + data.data.original.substr(0, 2) + '/' + data.data.original
+
+    imgView.appendChild(imgTag)
   });
 }
 
@@ -76,23 +88,39 @@ r.on('filesAdded', function(array){
   createBucket.done(function(data) {
     bucketId = data['data']['id']
     files = []
-    for (i in array) {
-      file = array[i];
+    var type = select.selectedOptions[0].value
 
+    if (type == 'sphere') {
       var newFile = {
-        'name': file.fileName,
+        'name': array[0].fileName,
         'parent': bucketId,
-      }
-
-      if (file.file.type.split('/')[0] == 'image') {
-        newFile['convert_to'] = 'image';
-      }
-
-      if (file.file.type.split('/')[0] == 'video') {
-        newFile['convert_to'] = 'video';
+        'type': type,
+        'resumable_ids': array.map(res=>res.uniqueIdentifier)
       }
 
       files.push(newFile);
+    } else if (type == 'video') {
+      var newFile = {
+        'name': array[0].fileName,
+        'parent': bucketId,
+        'type': type,
+        'resumable_ids': array.map(res=>res.uniqueIdentifier)
+      }
+
+      files.push(newFile);
+    } else {
+      for (i in array) {
+        file = array[i];
+
+        var newFile = {
+          'name': file.fileName,
+          'parent': bucketId,
+          'type': type,
+          'resumable_ids': [file.uniqueIdentifier]
+        }
+
+        files.push(newFile);
+      }
     }
 
     file_data = {'files': files};
@@ -110,7 +138,7 @@ r.on('filesAdded', function(array){
     createFiles.done(function(data) {
       uploadSession = data['data']['upload_session']
 
-      r.opts['target'] = 'http://127.0.0.1:' + port + '/files/' + uploadSession;
+      r.opts['target'] = 'http://127.0.0.1:' + port + '/files/' + uploadSession + '/upload';
       r.upload();
 
       // setTimeout(showFiles.bind(this, data), 1000);
